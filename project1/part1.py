@@ -10,6 +10,7 @@ class crawl():
         self.all_url_log = open("self.all_url_log.txt","w+")
         self.processed_urls = set()
         self.key_word = key_word
+        self.final_urls = open("final_urls2.txt", "w+")
 
     def bfs_url_crawler(self):
         url_count = 0
@@ -19,6 +20,7 @@ class crawl():
         while len(self.new_url) and not stop_flag:
             if len(self.new_url) > 1000:
                 stop_flag = 1
+                print("stop flag enbled")
             # pop the url and put all the neigbour in the queue
             pop_val = self.new_url.popleft()
             url, cur_level = pop_val
@@ -38,29 +40,39 @@ class crawl():
                 response = requests.get(url) 
             except:
                 print("broken url 404")
+                print("broken url - skipping")
                 continue
 
             url_parts = urlsplit(url)
-            base_url = "{0.scheme}://{0.netlock}".format(url_parts)
-            soup =BeautifulSoup(response.text,'lxml')
+            base_url = "{0.scheme}://{0.netloc}".format(url_parts)
+
+            soup = BeautifulSoup(response.text, 'lxml')
 
             for link in soup.find_all("a"):
-                anchor_link = link.get('href')
-                if not anchor_link.startswith('/') and self.key_word not in anchor_link:
-                   continue 
-                
-                local_link = f"{base_url}{anchor_link}"
-                print(local_link)
+                local_link = link.get('href')
+                if (not local_link
+                    or local_link.startswith('/ar')
+                    or local_link.startswith('/zh')
+                    or local_link.startswith('/es')
+                    or local_link.endswith('index')):
+                    continue
+            
+                if local_link.startswith('/'):
+                    local_link = f"{base_url}{local_link}"
 
-                if local_link not in self.processed_urls:
-                    self.new_url.append((anchor_link, cur_level+1))
+                for key in self.key_word:
+                    if key in local_link and local_link not in self.processed_urls:
+                        self.new_url.append((local_link, cur_level+1))
+                        self.processed_urls.add(local_link)
+                        self.final_urls.write(f"{local_link}\n")
 
+                        print(local_link, cur_level+1, len(self.new_url))
 
 if __name__ == "__main__":
     url = "https://www.mayoclinic.org/diseases-conditions"
     path_level = ["index"]
     key_word = ["diseases-conditions"]
     
-    crawler= crawl(url)
+    crawler= crawl(url, key_word)
     crawler.bfs_url_crawler()
 
